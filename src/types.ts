@@ -16,6 +16,6 @@ export interface Connection {
 
 export interface PeerData {
   type: 'offer' | 'answer' | 'ice-candidate' | 'message';
-  data: any;
+  data: RTCSessionDescriptionInit | RTCIceCandidateInit | Message;
   messageId?: string;
 }

@@ -1,13 +1,12 @@
 import React, { useState, useRef } from 'react';
 import { Send, Image, Smile } from 'lucide-react';
+import EmojiPicker, { EmojiClickData } from 'emoji-picker-react';
 
 interface ChatInputProps {
   onSendMessage: (text: string) => void;
   onSendImage: (imageData: string) => void;
   disabled?: boolean;
 }
-
-const EMOJI_LIST = ['😀', '😂', '😍', '🥳', '😎', '🤔', '👍', '❤️', '🔥', '✨'];
 
 export const ChatInput: React.FC<ChatInputProps> = ({ 
   onSendMessage, 
@@ -46,26 +45,16 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     reader.readAsDataURL(file);
   };
 
-  const addEmoji = (emoji: string) => {
-    setMessage(prev => prev + emoji);
+  const onEmojiClick = (emojiData: EmojiClickData) => {
+    setMessage(prevMessage => prevMessage + emojiData.emoji);
     setShowEmojis(false);
   };
 
   return (
     <div className="relative">
       {showEmojis && (
-        <div className="absolute bottom-full left-0 mb-2 p-3 bg-white/10 backdrop-blur-sm rounded-xl">
-          <div className="grid grid-cols-5 gap-2">
-            {EMOJI_LIST.map((emoji) => (
-              <button
-                key={emoji}
-                onClick={() => addEmoji(emoji)}
-                className="text-xl hover:bg-white/10 rounded p-1 transition-colors"
-              >
-                {emoji}
-              </button>
-            ))}
-          </div>
+        <div className="absolute bottom-full left-0 mb-2">
+          <EmojiPicker onEmojiClick={onEmojiClick} />
         </div>
       )}
 

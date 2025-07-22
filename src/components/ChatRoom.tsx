@@ -25,15 +25,16 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ connection, onDisconnect }) 
 
     // Set up connection handlers
     connection.onMessage((message) => {
+      const incomingMessage: Message = { ...message, sender: 'peer' };
       setMessages(prev => {
-        const newMessages = [...prev, message];
+        const newMessages = [...prev, incomingMessage];
         storageUtils.saveMessages(newMessages);
         return newMessages;
       });
 
       // Show notification if page is not visible
       if (document.hidden) {
-        storageUtils.showNotification('New Message', message.text);
+        storageUtils.showNotification('New Message', incomingMessage.text);
       }
 
       // Show typing indicator briefly
@@ -103,7 +104,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ connection, onDisconnect }) 
   const isConnected = connectionState === 'connected';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex flex-col">
+    <div className="min-h-screen gradient-bg flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between p-4 bg-white/10 backdrop-blur-sm">
         <div className="flex items-center gap-2">
@@ -119,7 +120,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ connection, onDisconnect }) 
 
         <button
           onClick={handleDisconnect}
-          className="flex items-center gap-2 px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+          className="flex items-center gap-2 px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors btn"
         >
           <LogOut size={16} />
           Unpair

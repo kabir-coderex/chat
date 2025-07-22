@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { QrCode, Scan, MessageSquare, Shield } from 'lucide-react';
 import { QRGenerator } from './QRGenerator';
 import { QRScanner } from './QRScanner';
 import { WebRTCConnection } from '../utils/webrtc';
 import { storageUtils } from '../utils/storage';
 import { v4 as uuidv4 } from 'uuid';
+import { SignalingService, SignalingMessage } from '../utils/signaling';
 
 interface StartupPageProps {
   onConnected: (connection: WebRTCConnection) => void;
@@ -16,6 +17,9 @@ export const StartupPage: React.FC<StartupPageProps> = ({ onConnected }) => {
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string>('');
 
+  const connectionRef = useRef<WebRTCConnection | null>(null);
+  const signalingRef = useRef<SignalingService | null>(null);
+
   useEffect(() => {
     // Check for existing connection
     const existingConnection = storageUtils.getConnection();
@@ -23,17 +27,21 @@ export const StartupPage: React.FC<StartupPageProps> = ({ onConnected }) => {
       // Try to reconnect
       handleReconnect();
     }
+
+    return () => {
+      signalingRef.current?.close();
+    };
   }, []);
 
   const handleReconnect = async () => {
     setIsConnecting(true);
     try {
-      const connection = new WebRTCConnection();
+      new WebRTCConnection();
       // In a real implementation, you'd need to store the connection offer/answer
       // For this demo, we'll clear the old connection and start fresh
       storageUtils.clearConnection();
       setIsConnecting(false);
-    } catch (error) {
+    } catch {
       setError('Failed to reconnect. Please create a new connection.');
       setIsConnecting(false);
     }
@@ -45,18 +53,34 @@ export const StartupPage: React.FC<StartupPageProps> = ({ onConnected }) => {
 
     try {
       const connection = new WebRTCConnection();
+      connectionRef.current = connection;
+
+      const signaling = new SignalingService();
+      signalingRef.current = signaling;
+
       const offer = await connection.createOffer();
-      const connectionId = uuidv4();
+      const peerId = signaling.getPeerId();
       
-      setConnectionData(JSON.stringify({ id: connectionId, offer }));
+      setConnectionData(JSON.stringify({ peerId }));
       setMode('generate');
 
-      // Wait for connection
+      signaling.onMessage(async (message: SignalingMessage) => {
+        if (message.type === 'answer') {
+          await connection.acceptAnswer(message.payload);
+        } else if (message.type === 'candidate') {
+          await connection.addIceCandidate(message.payload);
+        }
+      });
+
+      connection.onIceCandidate((candidate) => {
+        signaling.sendMessage(signaling.getPeerId(), 'candidate', candidate);
+      });
+
       connection.onConnectionStateChange((state) => {
         if (state === 'connected') {
           storageUtils.saveConnection({
-            id: connectionId,
-            peerId: 'unknown',
+            id: uuidv4(),
+            peerId: 'unknown', // You might want to get this from signaling
             created: Date.now(),
             lastSeen: Date.now()
           });
@@ -66,7 +90,10 @@ export const StartupPage: React.FC<StartupPageProps> = ({ onConnected }) => {
           setIsConnecting(false);
         }
       });
-    } catch (err) {
+
+      await signaling.sendMessage(peerId, 'offer', offer);
+
+    } catch {
       setError('Failed to create connection. Please try again.');
       setIsConnecting(false);
     }
@@ -79,30 +106,43 @@ export const StartupPage: React.FC<StartupPageProps> = ({ onConnected }) => {
 
     try {
       const parsedData = JSON.parse(data);
-      if (!parsedData.offer || !parsedData.id) {
+      if (!parsedData.peerId) {
         throw new Error('Invalid QR code data');
       }
 
-      connectToPeer(parsedData);
-    } catch (err) {
+      connectToPeer(parsedData.peerId);
+    } catch {
       setError('Invalid QR code. Please scan a valid chat QR code.');
       setIsConnecting(false);
     }
   };
 
-  const connectToPeer = async (peerData: { id: string; offer: string }) => {
+  const connectToPeer = async (peerId: string) => {
     try {
       const connection = new WebRTCConnection();
-      const answer = await connection.createAnswer(peerData.offer);
-      
-      // In a real implementation, you'd need to exchange the answer with the peer
-      // For this demo, we'll simulate the connection
-      
+      connectionRef.current = connection;
+
+      const signaling = new SignalingService();
+      signalingRef.current = signaling;
+
+      signaling.onMessage(async (message: SignalingMessage) => {
+        if (message.type === 'offer') {
+          const answer = await connection.createAnswer(message.payload);
+          await signaling.sendMessage(peerId, 'answer', answer);
+        } else if (message.type === 'candidate') {
+          await connection.addIceCandidate(message.payload);
+        }
+      });
+
+      connection.onIceCandidate((candidate) => {
+        signaling.sendMessage(peerId, 'candidate', candidate);
+      });
+
       connection.onConnectionStateChange((state) => {
         if (state === 'connected') {
           storageUtils.saveConnection({
             id: uuidv4(),
-            peerId: peerData.id,
+            peerId: peerId,
             created: Date.now(),
             lastSeen: Date.now()
           });
@@ -112,18 +152,7 @@ export const StartupPage: React.FC<StartupPageProps> = ({ onConnected }) => {
           setIsConnecting(false);
         }
       });
-
-      // Simulate successful connection after a brief delay
-      setTimeout(() => {
-        storageUtils.saveConnection({
-          id: uuidv4(),
-          peerId: peerData.id,
-          created: Date.now(),
-          lastSeen: Date.now()
-        });
-        onConnected(connection);
-      }, 2000);
-    } catch (err) {
+    } catch {
       setError('Failed to connect. Please try again.');
       setIsConnecting(false);
     }
@@ -151,7 +180,12 @@ export const StartupPage: React.FC<StartupPageProps> = ({ onConnected }) => {
           )}
 
           <button
-            onClick={() => setMode('home')}
+            onClick={() => {
+              setMode('home');
+              setIsConnecting(false);
+              connectionRef.current?.close();
+              signalingRef.current?.close();
+            }}
             className="w-full py-3 bg-white/10 hover:bg-white/20 text-white rounded-xl backdrop-blur-sm transition-colors"
           >
             Back
@@ -171,7 +205,7 @@ export const StartupPage: React.FC<StartupPageProps> = ({ onConnected }) => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center p-4">
+    <div className="min-h-screen gradient-bg flex items-center justify-center p-4">
       <div className="max-w-md w-full space-y-8">
         {/* Header */}
         <div className="text-center">
@@ -199,7 +233,7 @@ export const StartupPage: React.FC<StartupPageProps> = ({ onConnected }) => {
           <button
             onClick={handleGenerateQR}
             disabled={isConnecting}
-            className="w-full flex items-center justify-center gap-3 py-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:opacity-50 text-white rounded-xl transition-colors shadow-lg"
+            className="w-full flex items-center justify-center gap-3 py-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:opacity-50 text-white rounded-xl transition-colors shadow-lg btn"
           >
             <QrCode size={24} />
             Generate QR Code
@@ -208,7 +242,7 @@ export const StartupPage: React.FC<StartupPageProps> = ({ onConnected }) => {
           <button
             onClick={() => setMode('scan')}
             disabled={isConnecting}
-            className="w-full flex items-center justify-center gap-3 py-4 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:opacity-50 text-white rounded-xl transition-colors shadow-lg"
+            className="w-full flex items-center justify-center gap-3 py-4 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:opacity-50 text-white rounded-xl transition-colors shadow-lg btn"
           >
             <Scan size={24} />
             Scan QR Code

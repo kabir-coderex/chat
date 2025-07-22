@@ -68,11 +68,15 @@ export const storageUtils = {
   },
 
   showNotification(title: string, body: string) {
-    if ('Notification' in window && Notification.permission === 'granted') {
-      new Notification(title, {
-        body,
-        icon: '/vite.svg',
-        tag: 'chat-message'
+    if ('Notification' in window && Notification.permission === 'granted' && 'serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistration().then(reg => {
+        if (reg) {
+          reg.showNotification(title, {
+            body,
+            icon: '/icon-192x192.png',
+            tag: 'chat-message',
+          });
+        }
       });
     }
   }

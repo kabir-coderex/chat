@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import QrScanner from 'qr-scanner';
-import { Camera, Upload, X } from 'lucide-react';
+import { Upload, X } from 'lucide-react';
 
 interface QRScannerProps {
   onScan: (data: string) => void;
@@ -33,8 +33,7 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
 
         await qrScanner.start();
         setScanner(qrScanner);
-      } catch (err) {
-        console.error('Scanner init error:', err);
+      } catch {
         setHasCamera(false);
         setError('Camera not available. Please upload an image instead.');
       }
@@ -47,7 +46,7 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
         scanner.destroy();
       }
     };
-  }, [onScan]);
+  }, [onScan, scanner]);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -56,7 +55,7 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
     try {
       const result = await QrScanner.scanImage(file);
       onScan(result);
-    } catch (err) {
+    } catch {
       setError('Could not scan QR code from image. Please try another image.');
     }
   };

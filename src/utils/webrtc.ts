@@ -40,41 +40,31 @@ export class WebRTCConnection {
     this.dataChannel = channel;
   }
 
-  async createOffer(): Promise<string> {
+  async createOffer(): Promise<RTCSessionDescriptionInit> {
     this.dataChannel = this.pc.createDataChannel('messages');
     this.setupDataChannel(this.dataChannel);
 
     const offer = await this.pc.createOffer();
     await this.pc.setLocalDescription(offer);
 
-    return new Promise((resolve) => {
-      this.pc.onicecandidate = (event) => {
-        if (!event.candidate) {
-          resolve(JSON.stringify(this.pc.localDescription));
-        }
-      };
-    });
+    return offer;
   }
 
-  async createAnswer(offerString: string): Promise<string> {
-    const offer = JSON.parse(offerString);
+  async createAnswer(offer: RTCSessionDescriptionInit): Promise<RTCSessionDescriptionInit> {
     await this.pc.setRemoteDescription(offer);
 
     const answer = await this.pc.createAnswer();
     await this.pc.setLocalDescription(answer);
 
-    return new Promise((resolve) => {
-      this.pc.onicecandidate = (event) => {
-        if (!event.candidate) {
-          resolve(JSON.stringify(this.pc.localDescription));
-        }
-      };
-    });
+    return answer;
   }
 
-  async acceptAnswer(answerString: string) {
-    const answer = JSON.parse(answerString);
+  async acceptAnswer(answer: RTCSessionDescriptionInit) {
     await this.pc.setRemoteDescription(answer);
+  }
+
+  async addIceCandidate(candidate: RTCIceCandidateInit) {
+    await this.pc.addIceCandidate(candidate);
   }
 
   sendMessage(message: Message) {
@@ -94,6 +84,14 @@ export class WebRTCConnection {
 
   onConnectionStateChange(callback: (state: string) => void) {
     this.onConnectionStateCallback = callback;
+  }
+
+  onIceCandidate(callback: (candidate: RTCIceCandidate) => void) {
+    this.pc.onicecandidate = (event) => {
+      if (event.candidate) {
+        callback(event.candidate);
+      }
+    };
   }
 
   isConnected(): boolean {
