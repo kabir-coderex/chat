@@ -69,8 +69,13 @@ export const StartupPage: React.FC<StartupPageProps> = ({ onConnected }) => {
           await connection.acceptAnswer(message.payload);
         } else if (message.type === 'candidate') {
           await connection.addIceCandidate(message.payload);
+        } else if (message.type === 'request-offer') {
+          const offer = await connection.createOffer();
+          await signaling.sendMessage(message.sender, 'offer', offer);
         }
       });
+
+      await signaling.sendMessage(peerId, 'request-offer', {});
 
       connection.onIceCandidate((candidate) => {
         signaling.sendMessage(signaling.getPeerId(), 'candidate', candidate);

@@ -2,8 +2,10 @@ import { v4 as uuidv4 } from 'uuid';
 
 import { PeerData } from "../types";
 
+import { PeerData } from "../types";
+
 export interface SignalingMessage {
-  type: 'offer' | 'answer' | 'candidate';
+  type: 'offer' | 'answer' | 'candidate' | 'request-offer';
   payload: PeerData['data'];
   target: string;
   sender: string;
@@ -31,7 +33,7 @@ export class SignalingService {
     return this.peerId;
   }
 
-  public sendMessage(target: string, type: 'offer' | 'answer' | 'candidate', payload: PeerData['data']) {
+  public sendMessage(target: string, type: 'offer' | 'answer' | 'candidate' | 'request-offer', payload: PeerData['data']) {
     const message: SignalingMessage = {
       type,
       payload,
