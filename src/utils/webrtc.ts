@@ -64,7 +64,7 @@ export class WebRTCConnection {
   }
 
   async addIceCandidate(candidate: RTCIceCandidateInit) {
-    await this.pc.addIceCandidate(candidate);
+    await this.pc.addIceCandidate(new RTCIceCandidate(candidate));
   }
 
   sendMessage(message: Message) {
@@ -86,10 +86,10 @@ export class WebRTCConnection {
     this.onConnectionStateCallback = callback;
   }
 
-  onIceCandidate(callback: (candidate: RTCIceCandidate) => void) {
+  onIceCandidate(callback: (candidate: RTCIceCandidateInit) => void) {
     this.pc.onicecandidate = (event) => {
       if (event.candidate) {
-        callback(event.candidate);
+        callback(event.candidate.toJSON());
       }
     };
   }
