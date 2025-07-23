@@ -65,6 +65,7 @@ export const StartupPage: React.FC<StartupPageProps> = ({ onConnected }) => {
       setMode('generate');
 
       signaling.onMessage(async (message: SignalingMessage) => {
+        console.log('Signaling message received in handleGenerateQR:', message);
         if (message.type === 'answer') {
           await connection.acceptAnswer(message.payload);
         } else if (message.type === 'candidate') {
@@ -78,6 +79,7 @@ export const StartupPage: React.FC<StartupPageProps> = ({ onConnected }) => {
       await signaling.sendMessage(peerId, 'request-offer', {});
 
       connection.onIceCandidate((candidate) => {
+        console.log('Sending ICE candidate from handleGenerateQR:', candidate);
         signaling.sendMessage(signaling.getPeerId(), 'candidate', candidate);
       });
 
@@ -96,7 +98,9 @@ export const StartupPage: React.FC<StartupPageProps> = ({ onConnected }) => {
         }
       });
 
+      console.log('Sending offer from handleGenerateQR...');
       await signaling.sendMessage(peerId, 'offer', offer);
+      console.log('Offer sent from handleGenerateQR');
 
     } catch {
       setError('Failed to create connection. Please try again.');
@@ -131,15 +135,19 @@ export const StartupPage: React.FC<StartupPageProps> = ({ onConnected }) => {
       signalingRef.current = signaling;
 
       signaling.onMessage(async (message: SignalingMessage) => {
+        console.log('Signaling message received in connectToPeer:', message);
         if (message.type === 'offer') {
           const answer = await connection.createAnswer(message.payload);
+          console.log('Sending answer from connectToPeer...');
           await signaling.sendMessage(peerId, 'answer', answer);
+          console.log('Answer sent from connectToPeer');
         } else if (message.type === 'candidate') {
           await connection.addIceCandidate(message.payload);
         }
       });
 
       connection.onIceCandidate((candidate) => {
+        console.log('Sending ICE candidate from connectToPeer:', candidate);
         signaling.sendMessage(peerId, 'candidate', candidate);
       });
 
