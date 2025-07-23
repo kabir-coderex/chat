@@ -55,7 +55,7 @@ export const StartupPage: React.FC<StartupPageProps> = ({ onConnected }) => {
       const connection = new WebRTCConnection();
       connectionRef.current = connection;
 
-      const signaling = new SignalingService();
+      const signaling = new SignalingService(uuidv4());
       signalingRef.current = signaling;
 
       const offer = await connection.createOffer();
@@ -123,7 +123,7 @@ export const StartupPage: React.FC<StartupPageProps> = ({ onConnected }) => {
       const connection = new WebRTCConnection();
       connectionRef.current = connection;
 
-      const signaling = new SignalingService();
+      const signaling = new SignalingService(uuidv4());
       signalingRef.current = signaling;
 
       signaling.onMessage(async (message: SignalingMessage) => {
