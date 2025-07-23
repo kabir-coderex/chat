@@ -64,8 +64,15 @@ export const StartupPage: React.FC<StartupPageProps> = ({ onConnected }) => {
       setConnectionData(JSON.stringify({ peerId }));
       setMode('generate');
 
+      const intervalId = setInterval(() => {
+        if (connection.isConnected()) {
+          clearInterval(intervalId);
+          return;
+        }
+        signaling.sendMessage(peerId, 'request-offer', {});
+      }, 5000);
+
       signaling.onMessage(async (message: SignalingMessage) => {
-        console.log('Signaling message received in handleGenerateQR:', message);
         if (message.type === 'answer') {
           await connection.acceptAnswer(message.payload);
         } else if (message.type === 'candidate') {
@@ -76,15 +83,13 @@ export const StartupPage: React.FC<StartupPageProps> = ({ onConnected }) => {
         }
       });
 
-      await signaling.sendMessage(peerId, 'request-offer', {});
-
       connection.onIceCandidate((candidate) => {
-        console.log('Sending ICE candidate from handleGenerateQR:', candidate);
         signaling.sendMessage(signaling.getPeerId(), 'candidate', candidate);
       });
 
       connection.onConnectionStateChange((state) => {
         if (state === 'connected') {
+          clearInterval(intervalId);
           storageUtils.saveConnection({
             id: uuidv4(),
             peerId: 'unknown', // You might want to get this from signaling
@@ -93,14 +98,13 @@ export const StartupPage: React.FC<StartupPageProps> = ({ onConnected }) => {
           });
           onConnected(connection);
         } else if (state === 'failed') {
+          clearInterval(intervalId);
           setError('Connection failed. Please try again.');
           setIsConnecting(false);
         }
       });
 
-      console.log('Sending offer from handleGenerateQR...');
       await signaling.sendMessage(peerId, 'offer', offer);
-      console.log('Offer sent from handleGenerateQR');
 
     } catch {
       setError('Failed to create connection. Please try again.');
@@ -135,19 +139,15 @@ export const StartupPage: React.FC<StartupPageProps> = ({ onConnected }) => {
       signalingRef.current = signaling;
 
       signaling.onMessage(async (message: SignalingMessage) => {
-        console.log('Signaling message received in connectToPeer:', message);
         if (message.type === 'offer') {
           const answer = await connection.createAnswer(message.payload);
-          console.log('Sending answer from connectToPeer...');
           await signaling.sendMessage(peerId, 'answer', answer);
-          console.log('Answer sent from connectToPeer');
         } else if (message.type === 'candidate') {
           await connection.addIceCandidate(message.payload);
         }
       });
 
       connection.onIceCandidate((candidate) => {
-        console.log('Sending ICE candidate from connectToPeer:', candidate);
         signaling.sendMessage(peerId, 'candidate', candidate);
       });
 
@@ -260,6 +260,26 @@ export const StartupPage: React.FC<StartupPageProps> = ({ onConnected }) => {
             <Scan size={24} />
             Scan QR Code
           </button>
+
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              placeholder="Enter peer ID"
+              className="flex-1 bg-white/10 text-white placeholder-white/50 rounded-xl px-4 py-2 backdrop-blur-sm border-0 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <button
+              onClick={() => {
+                const peerId = (document.querySelector('input[type="text"]') as HTMLInputElement).value;
+                if (peerId) {
+                  connectToPeer(peerId);
+                }
+              }}
+              disabled={isConnecting}
+              className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:opacity-50 text-white rounded-xl transition-colors shadow-lg btn"
+            >
+              Connect
+            </button>
+          </div>
         </div>
 
         {error && (
