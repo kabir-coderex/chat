@@ -87,11 +87,11 @@ export const StartupPage: React.FC<StartupPageProps> = ({ onConnected }) => {
             created: Date.now(),
             lastSeen: Date.now()
           });
-          onConnected(connection);
         } else if (state === 'failed') {
           setError('Connection failed. Please try again.');
           setIsConnecting(false);
         }
+        onConnected(connection);
       });
 
     } catch {
@@ -149,11 +149,11 @@ export const StartupPage: React.FC<StartupPageProps> = ({ onConnected }) => {
             created: Date.now(),
             lastSeen: Date.now()
           });
-          onConnected(connection);
         } else if (state === 'failed') {
           setError('Connection failed. Please try again.');
           setIsConnecting(false);
         }
+        onConnected(connection);
       });
     } catch {
       setError('Failed to connect. Please try again.');
