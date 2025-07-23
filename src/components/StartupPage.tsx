@@ -64,14 +64,6 @@ export const StartupPage: React.FC<StartupPageProps> = ({ onConnected }) => {
       setConnectionData(JSON.stringify({ peerId }));
       setMode('generate');
 
-      const intervalId = setInterval(() => {
-        if (connection.isConnected()) {
-          clearInterval(intervalId);
-          return;
-        }
-        signaling.sendMessage(peerId, 'request-offer', {});
-      }, 5000);
-
       signaling.onMessage(async (message: SignalingMessage) => {
         if (message.type === 'answer') {
           await connection.acceptAnswer(message.payload);
@@ -89,7 +81,6 @@ export const StartupPage: React.FC<StartupPageProps> = ({ onConnected }) => {
 
       connection.onConnectionStateChange((state) => {
         if (state === 'connected') {
-          clearInterval(intervalId);
           storageUtils.saveConnection({
             id: uuidv4(),
             peerId: 'unknown', // You might want to get this from signaling
@@ -98,13 +89,10 @@ export const StartupPage: React.FC<StartupPageProps> = ({ onConnected }) => {
           });
           onConnected(connection);
         } else if (state === 'failed') {
-          clearInterval(intervalId);
           setError('Connection failed. Please try again.');
           setIsConnecting(false);
         }
       });
-
-      await signaling.sendMessage(peerId, 'offer', offer);
 
     } catch {
       setError('Failed to create connection. Please try again.');
@@ -147,6 +135,8 @@ export const StartupPage: React.FC<StartupPageProps> = ({ onConnected }) => {
         }
       });
 
+      await signaling.sendMessage(peerId, 'request-offer', {});
+
       connection.onIceCandidate((candidate) => {
         signaling.sendMessage(peerId, 'candidate', candidate);
       });
@@ -176,14 +166,19 @@ export const StartupPage: React.FC<StartupPageProps> = ({ onConnected }) => {
       <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center p-4">
         <div className="max-w-md w-full space-y-6">
           <div className="text-center">
-            <h2 className="text-2xl font-bold text-white mb-2">Share Your QR Code</h2>
-            <p className="text-white/80">Someone needs to scan this to connect</p>
+            <h2 className="text-2xl font-bold text-white mb-2">Your Code</h2>
+            <p className="text-white/80">Share this code with your peer to connect</p>
           </div>
 
-          <QRGenerator 
-            connectionData={connectionData}
-            onShare={() => console.log('QR shared')}
-          />
+          <div className="bg-white/10 p-4 rounded-xl flex items-center justify-between">
+            <span className="text-white font-mono text-lg">{JSON.parse(connectionData).peerId}</span>
+            <button
+              onClick={() => navigator.clipboard.writeText(JSON.parse(connectionData).peerId)}
+              className="p-2 text-white/60 hover:text-white hover:bg-white/20 rounded-full transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-copy"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path></svg>
+            </button>
+          </div>
 
           {isConnecting && (
             <div className="text-center">
@@ -249,17 +244,17 @@ export const StartupPage: React.FC<StartupPageProps> = ({ onConnected }) => {
             className="w-full flex items-center justify-center gap-3 py-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:opacity-50 text-white rounded-xl transition-colors shadow-lg btn"
           >
             <QrCode size={24} />
-            Generate QR Code
+            Generate Code
           </button>
 
-          <button
+          {/* <button
             onClick={() => setMode('scan')}
             disabled={isConnecting}
             className="w-full flex items-center justify-center gap-3 py-4 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:opacity-50 text-white rounded-xl transition-colors shadow-lg btn"
           >
             <Scan size={24} />
             Scan QR Code
-          </button>
+          </button> */}
 
           <div className="flex items-center gap-2">
             <input
